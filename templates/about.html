@@ -1,0 +1,65 @@
+<html>
+        {% include 'nav.html' %}
+    <body>
+        <center>
+            <div class="container">
+                <h1>About</h1>
+                <p id="tbh">tbh i made this because the old uitm timetable website broke. 
+                    And because the original creator is no longer a uitm student i dont see 
+                    why he would maintain it. I also do not wanna use uitm icress website.
+                    So i made this one from scatch. 
+                    It's still in development but it's a quick one i made like {time_ago}.
+                    I will add like, conflict detection, and proper error messages since
+                    clearly it's not in a good working condition.
+
+                    In the future though i would make mobile app + discord bot + telegram bot for this
+                    website so idk if people would like that, but it's for my own sake.
+                </p>
+                <p>
+                    If you want to fork my code or contribute, <a href="https://github.com/Izzu2000/uitm_timetable_maker">here's the github link.</a>
+                </p>
+            </div>
+        </center>
+    </body>
+    <script>
+        function timeDifference(current, previous) {
+            // i didnt write this lmao bad code but idc
+
+            var msPerMinute = 60 * 1000;
+            var msPerHour = msPerMinute * 60;
+            var msPerDay = msPerHour * 24;
+            var msPerMonth = msPerDay * 30;
+            var msPerYear = msPerDay * 365;
+
+            var elapsed = current - previous;
+
+            if (elapsed < msPerMinute) {
+                return Math.round(elapsed / 1000) + ' seconds ago';   
+            }
+
+            else if (elapsed < msPerHour) {
+                return Math.round(elapsed / msPerMinute) + ' minutes ago';   
+            }
+
+            else if (elapsed < msPerDay ) {
+                return Math.round(elapsed / msPerHour ) + ' hours ago';   
+            }
+
+            else if (elapsed < msPerMonth) {
+                return Math.round(elapsed / msPerDay) + ' days ago';   
+            }
+
+            else if (elapsed < msPerYear) {
+                return Math.round(elapsed / msPerMonth) + ' months ago';   
+            }
+
+            else {
+                return  Math.round(elapsed / msPerYear ) + ' years ago';   
+            }
+        }
+        var tbh = document.getElementById("tbh");
+        var value = tbh.innerHTML;
+        var cal = value.replace("{time_ago}", timeDifference(new Date(), new Date(2021, 9, 1, 16, 0, 0, 0)));
+        tbh.innerHTML = cal;
+    </script>
+</html>
