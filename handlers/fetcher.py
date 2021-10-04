@@ -7,7 +7,7 @@ import re
 from urllib.parse import quote
 from typing import Any
 
-from model import Course
+from handlers.model import Course
 
 
 class Route:

@@ -5,8 +5,8 @@ from starlette.requests import Request
 from starlette.staticfiles import StaticFiles
 from starlette.templating import Jinja2Templates
 
-from fetcher import Handler
-from model import CampusParams, CourseParams
+from handlers.fetcher import Handler
+from handlers.model import CampusParams, CourseParams
 
 templates = Jinja2Templates(directory="templates")
 
