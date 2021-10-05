@@ -130,5 +130,5 @@ dmypy.json
 
 # Pycharm & worker & notepad++
 .idea
-gunicorn.py
 nppBackup
+server_settings.json
