@@ -7,19 +7,14 @@ var pageState = {
 function currentCourses(){
     return pageState["rows"].filter(e => e.initiated);
 }
-function selectedCourses(){
-    return currentCourses().filter(e => e.selected != null);
-}
 function selectedBranch(branch){
     pageState["courses"] = [];
     pageState["groups"] = {};
     if ("table" in pageState){
-        var table = pageState["table"];
         currentCourses().forEach(e => e.updateBranch(branch));
         return;
     }else{
-        var table = createTable();
-        pageState["table"] = table;
+        pageState["table"] = createTable();
     }
     let course = createNewCourse(branch);
     course.initiateCourse();
