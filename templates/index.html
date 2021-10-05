@@ -8,7 +8,7 @@
     <body>
       <div class="center_container">
       <div id="branch_container">
-        <label for="branch_container" class="campus-label">Campus/Programme</label>
+        <label for="branch_container" class="campus-label">Campus/Faculty</label>
       </div>
       <table id="table_selection"></table>
       
@@ -20,11 +20,12 @@
     <script type="text/javascript" src="{{ url_for('static', path='scripts/handler.js') }}"></script>
 
     <script>
-      let branchContainer = document.getElementById("branch_container");
-      let branchSpinner = new Spinner("Select Campus", branchContainer);
-      {% for item in branches %}
-        branchSpinner.addOption("{{item}}", "{{item}}");
-      {% endfor %}
-      branchSpinner.addSelectedListener(selectedBranch);
+        function whenStart(arr_campuses){
+            let branchContainer = document.getElementById("branch_container");
+            let branchSpinner = new Spinner("Select Campus/Faculty", branchContainer);
+            arr_campuses.forEach(e => branchSpinner.addOption(e, e));
+            branchSpinner.addSelectedListener(selectedBranch);
+        }
+        whenStart({{ branches|safe }});
     </script>
 </html>

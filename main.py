@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -45,7 +46,7 @@ async def get_subject(params: CourseParams):
 async def serve_branch(request: Request):
     payload = {
         "request": request,
-        "branches": await get_campus_list()
+        "branches": json.dumps(await get_campus_list())
     }
 
     return templates.TemplateResponse("index.html", payload)
