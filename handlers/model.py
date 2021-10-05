@@ -21,3 +21,8 @@ class CampusParams(BaseModel):
 
 class CourseParams(CampusParams):
     course: str
+
+
+class UiTMRefuseException(Exception):
+    def __init__(self):
+        super().__init__("UiTM network is unavailable.")

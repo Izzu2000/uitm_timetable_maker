@@ -1,5 +1,9 @@
+from __future__ import annotations
 import itertools
+import json
 import operator
+import sys
+import traceback
 
 import aiohttp
 import asyncio
@@ -7,7 +11,11 @@ import re
 from urllib.parse import quote
 from typing import Any
 
-from handlers.model import Course
+import asyncpg
+from aiohttp import ClientConnectionError
+
+from config import SERVER_SETTING_PATH
+from handlers.model import Course, UiTMRefuseException
 
 
 class Route:
@@ -30,16 +38,37 @@ class Route:
 
 
 class HTTPClient:
-    def __init__(self):
-        self.loop = asyncio.get_event_loop()
+    def __init__(self, loop):
+        self.loop = loop
         self.session = None  # ClientSession should be init in a coroutine
 
     async def request(self, route: Route, **kwargs):
+        return await self.retry_request(route, retry=2, timeout=10, **kwargs)
+
+    async def retry_request(self, route: Route, *, retry=1, **kwargs):
+        assert retry > 0
+        error = None
+        while retry:
+            try:
+                return await self.handle_request(route, **kwargs)
+            except Exception as e:
+                error = e
+                if isinstance(e, UiTMRefuseException):
+                    print("uitm failure to connect, retrying...", flush=True)
+                else:
+                    print(f"Failure to perform request {route.method}: {route.url}")
+                retry -= 1
+        raise error
+
+    async def handle_request(self, route: Route, **kwargs):
         if not self.session:
             self.session = aiohttp.ClientSession()
 
-        async with self.session.request(route.method, route.url, **kwargs) as request:
-            return await request.text(encoding='utf-8')
+        try:
+            async with self.session.request(route.method, route.url, **kwargs) as request:
+                return await request.text(encoding='utf-8')
+        except ClientConnectionError:
+            raise UiTMRefuseException()
 
     def get_campus_list(self):
         return self.request(Route('GET', '/jadual/jadual/jadual.asp'))
@@ -63,7 +92,16 @@ class Handler:
     COLUMNS = re.compile(r'<td>((\n|.)*?)</td>', flags=re.I)
 
     def __init__(self):
-        self.http = HTTPClient()
+        self.loop = asyncio.get_event_loop()
+        self.http = HTTPClient(self.loop)
+        self.pool = None
+        self.loop.create_task(self.create_pool())
+
+    async def create_pool(self):
+        with open(SERVER_SETTING_PATH) as r:
+            settings = json.load(r)
+
+        self.pool = await asyncpg.create_pool(user=settings["database_username"], database=settings["database_name"], password=["database_password"])
 
     async def fetch_campus_list(self):
         raw_data = await self.http.get_campus_list()
@@ -81,6 +119,13 @@ class Handler:
             courses.update({result['name']: Course.from_regex(result)})
 
         return courses
+
+    def dispatch_error(self, callback, error):
+        self.loop.create_task(self.on_error(callback, error))
+
+    async def on_error(self, callback, error):
+        print(f'Error while invoking {callback.__name__}:', file=sys.stderr, flush=True)
+        traceback.print_exception(type(error), error, error.__traceback__)
 
     def tables(self, raw):
         getter = operator.itemgetter(0)  # cleaner

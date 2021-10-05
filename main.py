@@ -1,13 +1,15 @@
 import json
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from starlette import status
 from starlette.requests import Request
+from starlette.responses import JSONResponse
 from starlette.staticfiles import StaticFiles
 from starlette.templating import Jinja2Templates
 
 from handlers.fetcher import Handler
-from handlers.model import CampusParams, CourseParams
+from handlers.model import CampusParams, CourseParams, UiTMRefuseException
 
 templates = Jinja2Templates(directory="templates")
 
@@ -38,18 +40,36 @@ async def get_campus_subjects(campus: CampusParams):
 
 @app.post('/api/course')
 async def get_subject(params: CourseParams):
-    return await app.handler.fetch_course(params.branch, params.course)
+    try:
+        return await app.handler.fetch_course(params.branch, params.course)
+    except KeyError:
+        return HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Course {course!r} with Branch {branch!r} not found.".format(**dict(params))
+        )
 
 
 @app.get("/")
 @app.get("/index")
 async def serve_branch(request: Request):
+    if not (list_branches := await app.handler.fetch_campus_list()):
+        app.handler.dispatch_error(Exception("No campus lists."))
+
     payload = {
         "request": request,
-        "branches": json.dumps(await get_campus_list())
+        "branches": json.dumps(list_branches)
     }
-
     return templates.TemplateResponse("index.html", payload)
+
+
+@app.exception_handler(UiTMRefuseException)
+async def refuse_handler(request: Request, exc: UiTMRefuseException):
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content={
+            "message": "UiTM is refusing to connect. Please try again."
+        }
+    )
 
 
 @app.get("/about")

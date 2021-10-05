@@ -64,7 +64,7 @@ class Course {
         this.deleteCourse = this.deleteCourse.bind(this);
         this.attachRow = this.attachRow.bind(this);
         this.updateBranch = this.updateBranch.bind(this);
-        this.initSelects = this.initSelects.bind(this);
+        this.initSpinners = this.initSpinners.bind(this);
         this.initDelete = this.initDelete.bind(this);
         this.initiateCourse = this.initiateCourse.bind(this);
         this.fillCourses = this.fillCourses.bind(this);
@@ -91,7 +91,7 @@ class Course {
     initiateCourse(){
         this.isInit = true;
         this.groupSpinner.fullInitSpinner();
-        this.initSelects();
+        this.initSpinners();
         createNewCourse(this.branch);
         this.courseSpinner.removeClickListener(this.initiateCourse);
     }
@@ -221,7 +221,7 @@ class Course {
         pageState["group_selection"].add(val);
         creator.renderTable();
     }
-    initSelects(){
+    initSpinners(){
         this.initDelete();
         this.getCourses();
     }
