@@ -10,18 +10,18 @@ from handlers.db import Base
 SERVER_SETTING_PATH = "server_settings.json"
 
 
-def retrieve_engine(*, user, password, database, host="127.0.0.1"):
+def retrieve_engine(*, user, password, database, host="localhost"):
     return create_async_engine(f"postgresql+asyncpg://{user}:{password}@{host}/{database}", echo=True)
 
 
-async def db_creation(*, database_username, database_password, database_name, **kwargs):
+async def db_creation(*, database_username, database_password, database_name, **_):
     engine = retrieve_engine(user=database_username, password=database_password, database=database_name)
     meta = Base.metadata
     async with engine.begin() as conn:
         await conn.run_sync(meta.create_all)
 
 
-async def db_drop(*, database_username, database_password, database_name, **kwargs):  # **kwargs cause lazy
+async def db_drop(*, database_username, database_password, database_name, **_):  # **kwargs cause lazy
     engine = retrieve_engine(user=database_username, password=database_password, database=database_name)
     meta = Base.metadata
     async with engine.begin() as conn:

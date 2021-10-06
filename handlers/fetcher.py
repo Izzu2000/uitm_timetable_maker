@@ -3,6 +3,7 @@ import itertools
 import json
 import operator
 import sys
+import time
 import traceback
 
 import aiohttp
@@ -15,7 +16,8 @@ import asyncpg
 from aiohttp import ClientConnectionError
 
 from config import SERVER_SETTING_PATH
-from handlers.model import Course, UiTMRefuseException
+from handlers.model import Course, UiTMRefuseException, CampusList, CampusCoursesList, CourseGroupsList, \
+    UiTMCampusNotValid
 
 
 class Route:
@@ -66,6 +68,7 @@ class HTTPClient:
 
         try:
             async with self.session.request(route.method, route.url, **kwargs) as request:
+                print("Fetching ", route.method, ":", route.url, flush=True)
                 return await request.text(encoding='utf-8')
         except ClientConnectionError:
             raise UiTMRefuseException()
@@ -96,18 +99,71 @@ class Handler:
         self.http = HTTPClient(self.loop)
         self.pool = None
         self.loop.create_task(self.create_pool())
+        self.cache_campuses_list = CampusList(self)
+        self.campus_courses = {}
+        self.course_groups = {}
 
     async def create_pool(self):
         with open(SERVER_SETTING_PATH) as r:
             settings = json.load(r)
 
-        self.pool = await asyncpg.create_pool(user=settings["database_username"], database=settings["database_name"], password=["database_password"])
+        start = time.time()
+        print("Connecting to database...", flush=True)
+        try:
+            self.pool = await asyncpg.create_pool(
+                loop=self.loop,
+                user=settings["database_username"],
+                database=settings["database_name"],
+                password=settings["database_password"]
+            )
+        except Exception as e:
+            if isinstance(e, asyncio.TimeoutError):
+                print("Database timeout failure...", time.time() - start, "seconds", file=sys.stderr, flush=True)
+                print("Database password was wrong perhaps?", file=sys.stderr, flush=True)
+            elif isinstance(e, asyncpg.InvalidCatalogNameError):
+                print(e, time.time() - start, "seconds", file=sys.stderr, flush=True)
+            else:
+                etype = type(e)
+                trace = e.__traceback__
+                lines = traceback.format_exception(etype, e, trace)
+                print(''.join(lines), file=sys.stderr, flush=True)
+            print("Killing host", flush=True)
+            exit(1)
+        else:
+            print("Database connected", time.time() - start, "seconds", file=sys.stderr, flush=True)
 
     async def fetch_campus_list(self):
         raw_data = await self.http.get_campus_list()
         # Since raw_data is pretty much a text response, we need to use regex here
         get_value = operator.itemgetter('value')
         return [*map(get_value, re.finditer(self.CAMPUS_REGEX, raw_data))]
+
+    async def get_course(self, campus: str, course: str):
+        campuses = await self.get_campus_list()
+        if campus not in campuses:
+            raise UiTMCampusNotValid(campus)
+
+        if callback := self.course_groups.get(course):
+            return await callback(campus, course)
+        else:
+            groups = CourseGroupsList(self)
+            self.course_groups.update({course: groups})
+            return await groups(campus, course)
+
+    async def get_campus_list(self):
+        return await self.cache_campuses_list()
+
+    async def get_campus_courses(self, campus: str):
+        campuses = await self.get_campus_list()
+        if campus not in campuses:
+            raise UiTMCampusNotValid(campus)
+
+        if callback := self.campus_courses.get(campus):
+            return await callback(campus)
+        else:
+            courses = CampusCoursesList(self)
+            self.campus_courses.update({campus: courses})
+            return await courses(campus)
 
     async def fetch_campus_courses(self, campus: str):
         raw_data = await self.http.get_schedule(campus)
@@ -134,7 +190,7 @@ class Handler:
             yield [*map(getter, self.COLUMNS.findall(column))]
 
     async def fetch_course(self, campus: str, subject: str):
-        subjects = await self.fetch_campus_courses(campus)
+        subjects = await self.get_campus_courses(campus)
         found = subjects[subject]
         raw_schedule = await self.http.get_course(found.branch, found.course)
         iterator = self.tables(raw_schedule)
