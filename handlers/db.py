@@ -1,9 +1,8 @@
 import itertools
 
-from sqlalchemy import Column, String, Integer, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, String, Integer, ForeignKey, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import TIMESTAMP
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.sql import func
 
 Base = declarative_base()
 
@@ -14,7 +13,7 @@ class BranchCourse(Base):
     branch = Column(String, nullable=False)
     course = Column(String, nullable=False)
     name = Column(String, nullable=False)
-    fetch_at = Column(TIMESTAMP, server_default=func.now())
+    fetch_at = Column(TIMESTAMP, server_default=text("(now() at time zone 'utc')"))
     __table_args__ = (UniqueConstraint('branch', 'course', name='branchcourse_combo'),)
 
 

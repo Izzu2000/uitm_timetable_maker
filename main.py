@@ -1,4 +1,6 @@
+import asyncio
 import json
+import sys
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -18,8 +20,16 @@ templates = Jinja2Templates(directory="templates")
 class Web(FastAPI):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.handler = Handler()
-        self.loop = self.handler.loop
+        self.handler = None
+        self.loop = None
+
+    def init(self, loop):
+        self.handler = Handler(loop)
+        self.loop = loop
+
+    def close(self):
+        if self.handler:
+            self.handler.close()
 
 
 app = Web()
@@ -85,10 +95,32 @@ async def serve_about(request: Request):
     return templates.TemplateResponse("about.html", {"request": request})
 
 
+@app.on_event("startup")
+async def startup():
+    try:
+        loop = asyncio.get_running_loop()
+        if loop is None:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        app.init(loop)
+    except BaseException as e:
+        print("Failure to startup.", e, file=sys.stderr)
+
+
+@app.on_event("shutdown")
+async def exiting():
+    try:
+        app.close()
+    except BaseException as e:
+        print("Error occured during shutdown.", e, file=sys.stderr)
+
+
 def blocking_main():
-    config = Config(app=app, loop=app.loop)
+    """This only runs if you run it manually without any worker"""
+    loop = asyncio.get_event_loop()
+    config = Config(app=app, loop=loop)
     server = Server(config=config)
-    app.loop.run_until_complete(server.serve())
+    loop.run_until_complete(server.serve())
 
 
 if __name__ == "__main__":

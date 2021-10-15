@@ -86,6 +86,9 @@ class HTTPClient:
     def get_course(self, branch: str, course: str):
         return self.request(Route('GET', '/jadual/{branch}/{course}.html', branch=branch, course=course))
 
+    def close(self):
+        self.session.close()
+
 
 class Handler:
     CAMPUS_REGEX = re.compile(r'<option value="(?P<value>.*)"[ ]+>(?P<key>.*)</option>', flags=re.I)
@@ -94,9 +97,9 @@ class Handler:
     ROWS = re.compile(r'<tr>((\n|.)*?)</tr>', flags=re.I)
     COLUMNS = re.compile(r'<td>((\n|.)*?)</td>', flags=re.I)
 
-    def __init__(self):
-        self.loop = asyncio.get_event_loop()
-        self.http = HTTPClient(self.loop)
+    def __init__(self, loop):
+        self.loop = loop
+        self.http = HTTPClient(loop)
         self.pool = None
         self.loop.create_task(self.create_pool())
         self.cache_campuses_list = CampusList(self)
@@ -128,7 +131,6 @@ class Handler:
                 lines = traceback.format_exception(etype, e, trace)
                 print(''.join(lines), file=sys.stderr, flush=True)
             print("Killing host", flush=True)
-            exit(1)
         else:
             print("Database connected", time.time() - start, "seconds", file=sys.stderr, flush=True)
 
@@ -191,7 +193,11 @@ class Handler:
 
     async def fetch_course(self, campus: str, subject: str):
         subjects = await self.get_campus_courses(campus)
-        found = subjects[subject]
+        try:
+            found = subjects[subject]
+        except KeyError:
+            raise UiTMCampusNotValid(campus)
+
         raw_schedule = await self.http.get_course(found.branch, found.course)
         iterator = self.tables(raw_schedule)
         header, *rows = list(iterator)
@@ -202,3 +208,7 @@ class Handler:
                 .replace('\r\n', ' ')\
                 .strip()
         return [{next(header_iterator): clean_value(value) for value in row} for row in rows]
+
+    def close(self):
+        if self.http:
+            self.http.close()

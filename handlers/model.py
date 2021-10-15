@@ -116,9 +116,7 @@ class CourseGroupsList(DataCache):
                 return to_return
 
         fetched_value = await self.handler.fetch_course(branch, course)
-
-        await self.insert_into_db(branch, course, fetched_value)
-
+        self.handler.loop.create_task(self.insert_into_db(branch, course, fetched_value))
         return fetched_value
 
     async def insert_into_db(self, branch: str, course: str, fetched_value: Dict[str, Any]) -> None:
@@ -127,7 +125,7 @@ class CourseGroupsList(DataCache):
 
         query = basic_binding(delete_stmt)
         await self.handler.pool.execute(query, branch, course)
-
+        iteration = 0
         while True:
             selection = select(BranchCourse.id)\
                 .where(*self.derive_branch_course())
@@ -136,11 +134,15 @@ class CourseGroupsList(DataCache):
             if (course_id := await self.handler.pool.fetchval(query, branch, course)) is not None:
                 break
 
+            if iteration > 5:
+                raise Exception("Too many sequence to get campus courses.")
+
             await self.handler.get_campus_courses(branch)
+            iteration += 1
 
         columns = CourseGroup.__table__.columns.keys()[1:]  # offset for dummy primary key
         stmt = insert(CourseGroup).values({k: literal_column("'$'") for k in columns})
-
+        # stmt = stmt.on_conflict_do_nothing(index_elements=['course_id', 'group', 'start', 'end', 'day'])
         query = basic_binding(stmt)
         values = [(course_id, *[dict_val[column_name.capitalize()] for column_name in columns[1:]])
                   for dict_val in fetched_value]
