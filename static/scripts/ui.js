@@ -13,8 +13,8 @@ class PartialSpinner{
         this.fullInitSpinner = this.fullInitSpinner.bind(this);
         this.initSearch = this.initSearch.bind(this);
         this.selectListeners = [];
-        this.partialInitSpinner();
         this.isPartial = true;
+        this.partialInitSpinner();
     }
     createDiv(className, bind){
       let container = document.createElement("div");
@@ -60,7 +60,8 @@ class PartialSpinner{
 
     }
     setDefaultOptionClickListener(option){
-        option.addEventListener("click", () => {
+        option.addEventListener("click", e => {
+            e.preventDefault();
             var valueSelect = option.querySelector("label").innerHTML;
             this.placeholderContainer.innerHTML = valueSelect;
             this.optionsContainer.classList.remove("active");
@@ -84,12 +85,12 @@ class PartialSpinner{
     filterList(query){
         var searchTerm = query.toLowerCase().trim();
         this.optionsContainer.childNodes.forEach(option => {
-            let label = option.firstElementChild.nextElementSibling.innerText.toLowerCase();
-            if (label.indexOf(searchTerm) != -1) {
+            let label = option.firstElementChild.nextElementSibling.innerText.toLowerCase().trim();
+            if (label.indexOf(searchTerm) != -1)
                 option.style.display = "block";
-            } else {
+            else 
                 option.style.display = "none";
-            }
+            
       });
     }
     setClickListener(callback){

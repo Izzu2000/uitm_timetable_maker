@@ -13,15 +13,20 @@
     </body>
     <script src="{{ url_for('static', path='scripts/timetable.js') }}"></script>
     <script src="{{ url_for('static', path='scripts/ui.js') }}"></script>
+    <script src="{{ url_for('static', path='scripts/model.js') }}"></script>
     <script type="text/javascript" src="{{ url_for('static', path='scripts/handler.js') }}"></script>
 
     <script>
-        function whenStart(arr_campuses){
+        var meWhen = function whenStart(arr_campuses){
+            if (meWhen.fired)  // ensure fired once
+              return;
+
+            meWhen.fired = true;
             let branchContainer = document.getElementById("branch_container");
             let branchSpinner = new Spinner("Select Campus/Faculty", branchContainer);
             arr_campuses.forEach(e => branchSpinner.addOption(e, e));
             branchSpinner.addSelectedListener(selectedBranch);
         }
-        whenStart({{ branches|safe }});
+        meWhen({{ branches|safe }});
     </script>
 </html>

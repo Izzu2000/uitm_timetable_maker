@@ -8,10 +8,14 @@ function currentCourses(){
     return pageState["rows"].filter(e => e.initiated);
 }
 function selectedBranch(branch){
+    console.log("Branch: " + branch)
     pageState["courses"] = [];
     pageState["groups"] = {};
     if ("table" in pageState){
-        currentCourses().forEach(e => e.updateBranch(branch));
+        currentCourses().forEach(e => {
+            console.log("branchupdate:" + branch);
+            e.updateBranch(branch);
+        });
         return;
     }else{
         pageState["table"] = createTable();
@@ -42,7 +46,11 @@ class BasicAccumulator{
         this.functionLock = true;
         while(this.functions.length){
             var thisCallback = this.functions.pop();
-            await thisCallback();
+            try{
+                await thisCallback();
+            }catch(error){
+                console.log("Failure to call " + thisCallback + ": " + error.message);
+            }
         }
         this.functionLock = false;
     }
@@ -71,7 +79,6 @@ class Course {
         this.fillGroups = this.fillGroups.bind(this);
         this.autoGroupAssume = this.autoGroupAssume.bind(this);
         this.__getCourses = this.__getCourses.bind(this);
-        this.lock = false;
         this.isInit = false;
         this.selectionData = [];
     }
@@ -131,7 +138,7 @@ class Course {
     }
     fillCourses(data){
         for (var key in data)
-                createOptionJson(this.courseSpinner, data[key]);
+            createOptionJson(this.courseSpinner, data[key]);
     }
     getCourses(){
         accumulator.execute(this.__getCourses);
@@ -165,6 +172,9 @@ class Course {
         let filled = [];
         for(var key in data){
             let rawData = data[key];
+            if (rawData == null || !rawData.hasOwnProperty('Group'))
+                continue;
+
             let value = rawData["Group"];
             if (!filled.includes(value)){
                 filled.push(value);
@@ -238,7 +248,10 @@ class Course {
 
 class TimeTableCreator{
     constructor(){
-        this.rows = [
+        this.renderTable = this.renderTable.bind(this);
+    }
+    getDays(noWeekend){
+        let days = [
             "Monday",
             "Tuesday",
             "Wednesday",
@@ -246,15 +259,14 @@ class TimeTableCreator{
             "Friday",
             "Saturday",
             "Sunday"
-        ]
-        this.renderTable = this.renderTable.bind(this);
+        ];
+        return noWeekend? days.slice(0, 5): days;
     }
     renderTable(){
         var timetable = new Timetable();
-        timetable.setScope(8, 18);
-        timetable.addLocations(this.rows);
         var alreadyFilled = new Set();
-        pageState["rows"].forEach(course => {
+        var groups = [];
+        currentCourses().forEach(course => {
             let courseName = course.courseValue();
             if (!alreadyFilled.has(courseName)){
                 alreadyFilled.add(courseName);
@@ -262,54 +274,30 @@ class TimeTableCreator{
                     It is much easier to do this than disallowing user for adding the same
                     course. Nobody got time for that.
                 */
-                let rawData = course.selectedGroupValues();
-                rawData.forEach(classes => {
-                    let start = this.toDate(classes["Start"]);
-                    console.log("Start " + start);
-                    let end = this.toDate(classes["End"]);
-                    console.log("End " + end);
-                    timetable.addEvent(courseName, classes['Day'], start, end);
-                });
+
+                groups.push(new Group(course));
             }
         });
+        
+        let hasWeekend = groups.some(g => g.hasWeekend());
+        timetable.addLocations(this.getDays(!hasWeekend));
+        const maxHour = Math.max(18, ...groups.map(group => group.maxHour()));
+        const minHour = Math.min(8, ...groups.map(group => group.minHour()));
+        timetable.setScope(minHour, maxHour);
+
+        groups.map(group => group.classes).flat().forEach(oneClass => {
+            try{
+                timetable.addEvent(oneClass.courseName, oneClass.day, oneClass.start, oneClass.end);
+            }catch(err){
+                console.log("Failure to add course '" + oneClass.courseName + "': " + err);
+            }
+        });
+
         var renderer = new Timetable.Renderer(timetable);
         renderer.draw('.timetable');
     }
-    toDate(time){
-        /*
-        The problem with uitm time given is that, they are unreliable
-        They use both 24 and 12 hour time, which is confusing
-        Possibility of data would be
-            13:00pm (would break the regular date parse)
-            12:00am (referring to 12:00pm, there are no classes at 12 midnight lol)
-        With this in mind, the function is to:
-            - convert 12 to 12:00 regardless of pm/am
-            - convert 1pm or 1am to 13:00 (not logical for classes to be at night)
-
-            if hour 1 - 6, they would be 13 - 18
-            if hour 8 - 12 or 0, they would be 8 - 12
-
-        I wasn't sure to do this client side or server side, i decided to do it in client side
-        because it's the client responsibility to interpret this data.
-        */
-        var grouper = /^((?<hour>[01]?[0-9]|2[0-3])):(?<min>(([0-5]\d)(:[0-5]\d)?))( )*(?<day>(am|pm))$/.exec(time);
-        const {groups: {hour, min, day}} = grouper;
-        var date = new Date();
-        var currentHour = parseInt(hour);
-        var currentMinute = parseInt(min);
-        if (currentHour <= 6 && currentHour > 0)
-            currentHour += 12;
-        else if (currentHour == 0)
-            currentHour = 12;
-
-        date.setHours(currentHour);
-        date.setMinutes(currentMinute);
-        date.setSeconds(0);
-        console.log(currentHour);
-        console.log(date);
-        return date;
-    }
 }
+
 var creator = new TimeTableCreator();
 function createOptionJson(spinner, subj){
     return createOption(spinner, subj['course'], subj['name']);
@@ -319,7 +307,7 @@ function createOption(spinner, value, text){
 }
 
 function createTH(row, text){
-    var thCell = document.createElement("TH");
+    var thCell = document.createElement("th");
     thCell.innerHTML = text;
     thCell.scope = "col";
     row.appendChild(thCell);
