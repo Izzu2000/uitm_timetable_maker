@@ -1,45 +1,16 @@
 class Class{
-    constructor(courseName, day, start, end){
-        this.courseName = courseName;
-        this.day = day;
-        this.start = start;
-        this.end = end;
-    }
-}
-
-class Group{
-    constructor(course){
+    constructor(course, json){
         this.course = course;
-        this.groupValues = course.selectedGroupValues();
         this.toDate = this.toDate.bind(this);
-        this.formatData = this.formatData.bind(this);
-        this.classes = this.groupValues.map(this.formatData);
-    }
-    getAllHours(){
-        return this.classes.map(e => {
-            let end = e.end;
-            return end.getHours() + (end.getMinutes() > 0);
-        });
-    }
-    maxHour(){
-        return Math.max(...this.getAllHours());
-    }
-    minHour(){
-        return Math.min(...this.getAllHours());
-    }
-    hasWeekend(){
-        return this.classes.map(e => e.day.toLowerCase()).includes("saturday", "sunday");
-    }
 
-    formatData(one_class){
-        let start = this.toDate(one_class["Start"]);
-        console.log("Start " + start);
-        let end = this.toDate(one_class["End"]);
-        console.log("End " + end);
+        let start = this.toDate(json["Start"]);
+        let end = this.toDate(json["End"]);
         let [newStart, newEnd] = this.inferenceTime(start, end);
-        console.log("newStart " + newStart);
-        console.log("newEnd " + newEnd);
-        return new Class(this.course.courseValue(), one_class['Day'], newStart, newEnd);
+        this.start = newStart;
+        this.end = newEnd;
+
+        this.courseName = course.courseValue();
+        this.day = json["Day"];
     }
     toDate(time){
         /*
@@ -83,17 +54,48 @@ class Group{
         */
         let startHour = start.getHours();
         let endHour = end.getHours();
-        if (startHour > endHour){
-            if (startHour == 0)
-                start.setHours(12);
-            else
-                end.setHours(endHour + 12);
-            
-        }else if (startHour == 18 && endHour < 18){
-            endHour.setHours(endHour + 12);
-        }else if (startHour == endHour){
+
+        if (startHour == endHour) // validity check
             throw new Error('Unable to inference time correctly');
+
+        if (startHour > endHour){  // ex. 4pm - 9am
+            if (startHour == 0) // ex. 12am (not possible) -> 12pm
+                start.setHours(12);
+            else  // ex. 1am -> 1pm
+                end.setHours(endHour + 12);
         }
+
         return [start, end];
+    }
+}
+
+class Group{
+    constructor(course){
+        this.course = course;
+        this.groupValues = course.selectedGroupValues();
+        this.formatJson = this.formatJson.bind(this);
+        this.range = [];
+        this.classes = this.groupValues.map(this.formatJson);
+    }
+    formatJson(json){
+        return new Class(this.course, json);
+    }
+    getAllHours(){
+        return this.classes.map(e => {
+            let start = e.start;
+            let end = e.end;
+            let endTime = end.getHours() + (end.getMinutes() > 0);
+            return [start.getHours(), endTime];
+        });
+    }
+    maxHour(){
+        return Math.max(...this.getAllHours().flat());
+    }
+    minHour(){
+        return Math.min(...this.getAllHours().flat());
+    }
+    hasWeekend(){
+        console.log(this.classes.map(e => e.day.toLowerCase()));
+        return this.classes.map(e => e.day.toLowerCase()).includes("saturday", "sunday");
     }
 }

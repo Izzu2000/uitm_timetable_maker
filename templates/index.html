@@ -3,13 +3,15 @@
     {% include 'nav.html' %}
     <body>
       <div class="center_container">
-      <div id="branch_container">
-        <label for="branch_container" class="campus-label">Campus/Faculty</label>
+        <div id="branch_container">
+          <label for="branch_container" class="campus-label">Campus/Faculty</label>
+        </div>
+        <table id="table_selection"></table>
+        
+        <div class="timetable"></div>
+        <table id="table_time"></table>
       </div>
-      <table id="table_selection"></table>
-      
-      <div class="timetable"></div>
-      </div>
+
     </body>
     <script src="{{ url_for('static', path='scripts/timetable.js') }}"></script>
     <script src="{{ url_for('static', path='scripts/ui.js') }}"></script>

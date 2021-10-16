@@ -78,7 +78,7 @@ class Course {
         this.fillCourses = this.fillCourses.bind(this);
         this.fillGroups = this.fillGroups.bind(this);
         this.autoGroupAssume = this.autoGroupAssume.bind(this);
-        this.__getCourses = this.__getCourses.bind(this);
+        this.__fetchCourses = this.__fetchCourses.bind(this);
         this.isInit = false;
         this.selectionData = [];
     }
@@ -141,9 +141,6 @@ class Course {
             createOptionJson(this.courseSpinner, data[key]);
     }
     getCourses(){
-        accumulator.execute(this.__getCourses);
-    }
-    async __getCourses(){
         this.courseSpinner.clearOptions();
         var cachedCourses = pageState["courses"];
         if (cachedCourses.length != 0){
@@ -151,13 +148,21 @@ class Course {
             return;
         }
 
+        accumulator.execute(async() => await this.__fetchCourses(cachedCourses));
+    }
+    async __fetchCourses(cachedCourses){
         let payload = {branch: this.branch}
-        let response = await fetch("/api/courses", {
-            method: "POST",
-            body: JSON.stringify(payload),
-            headers: {'Content-Type': 'application/json'}
-        });
-        let json = await response.json();
+        try{
+            let response = await fetch("/api/courses", {
+                method: "POST",
+                body: JSON.stringify(payload),
+                headers: {'Content-Type': 'application/json'}
+            });
+            var json = await response.json();
+        }catch(err) {
+            console.log("Failure getting courses " + this.branch + ":" + err);
+            json = {};
+        }
         for(var key in json)
             cachedCourses.push(json[key]);
         this.fillCourses(json);
@@ -262,10 +267,9 @@ class TimeTableCreator{
         ];
         return noWeekend? days.slice(0, 5): days;
     }
-    renderTable(){
-        var timetable = new Timetable();
-        var alreadyFilled = new Set();
-        var groups = [];
+    getAllGroups(){
+        let alreadyFilled = new Set();
+        let groups = [];
         currentCourses().forEach(course => {
             let courseName = course.courseValue();
             if (!alreadyFilled.has(courseName)){
@@ -278,14 +282,53 @@ class TimeTableCreator{
                 groups.push(new Group(course));
             }
         });
+        return groups;
+    }
+    allClass(groups){
+        return groups.map(group => group.classes).flat();
+    }
+    clashDetection(groups){
+        let classes = [];
+        this.allClass(groups).forEach(oneClass => {
+            let indexClash = classes.map(e => {
+                if (e.course == oneClass.course)
+                    return false;
+                
+                if (e.day != oneClass.day)
+                    return false;
+
+                let [start, end, cStart, cEnd] = [e.start, e.end, oneClass.start, oneClass.end];
+                return (start <= cStart && cStart <= end) ||
+                (start <= cEnd && cEnd <= end);
+            }).indexOf(true);
+            classes.push(oneClass);
+            if (indexClash > -1){
+                let clashClass = classes[indexClash];
+                console.log("Clash = " + clashClass.course.courseValue() + " with " + oneClass.course.courseValue());
+            }
+        });
+    }
+
+    renderTable(){
+        let timetable = new Timetable();
+        let groups = this.getAllGroups();
         
         let hasWeekend = groups.some(g => g.hasWeekend());
         timetable.addLocations(this.getDays(!hasWeekend));
-        const maxHour = Math.max(18, ...groups.map(group => group.maxHour()));
-        const minHour = Math.min(8, ...groups.map(group => group.minHour()));
+        this.clashDetection(groups);
+
+        let maxHour = Math.max(...groups.map(group => group.maxHour()));
+        let minHour = Math.min(...groups.map(group => group.minHour()));
+        if (!isFinite(maxHour))  // max/min becomes infinity when there is no groups selected
+            maxHour = 18;
+        if (!isFinite(minHour))
+            minHour = 8;
+        console.log(minHour, maxHour)
         timetable.setScope(minHour, maxHour);
 
-        groups.map(group => group.classes).flat().forEach(oneClass => {
+
+
+        this.allClass(groups).forEach(oneClass => {
             try{
                 timetable.addEvent(oneClass.courseName, oneClass.day, oneClass.start, oneClass.end);
             }catch(err){
