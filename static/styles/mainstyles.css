@@ -24,7 +24,7 @@ h2 {
 .center_container{
   margin: auto;
   margin-top: 20px;
-  width: 59.2%;
+  width: 70%;
   padding: 10px;
 }
 .select-box{
@@ -69,6 +69,26 @@ h2 {
   border-radius: 8px;
   overflow: hidden;
   order: 1;
+}
+
+.timetable .time-entry, .timetable ul.room-timeline li:first-child .time-entry {
+  height: 100px;
+  text-align: center;
+}
+
+.timetable aside li, .timetable time li {
+  height: 100px !important;
+}
+.room-timeline h5 {
+  font-size: 18px;
+  margin-bottom: 0;
+  margin-top: 15;
+  font-weight:100;
+}
+.room-timeline p {
+  font-size: 15px;
+  margin-bottom: 0;
+  margin-top: 0;
 }
 
 .selected {

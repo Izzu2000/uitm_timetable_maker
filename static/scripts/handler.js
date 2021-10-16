@@ -326,18 +326,28 @@ class TimeTableCreator{
         console.log(minHour, maxHour)
         timetable.setScope(minHour, maxHour);
 
-
-
         this.allClass(groups).forEach(oneClass => {
             try{
-                timetable.addEvent(oneClass.courseName, oneClass.day, oneClass.start, oneClass.end);
+                let [course, options] = oneClass.formattedName();
+                timetable.addEvent(course, oneClass.day, oneClass.start, oneClass.end, options);
             }catch(err){
                 console.log("Failure to add course '" + oneClass.courseName + "': " + err);
             }
         });
+        
 
+        // dynamic timetable is not sync, as temporary solution, calculate it.
         var renderer = new Timetable.Renderer(timetable);
+        const absoluteOffset = 50;
+        let calculate = (offset) => ((maxHour - minHour) * 96) + offset + absoluteOffset;
+        let tableElem = document.querySelector('.timetable');
+
+        tableElem.setAttribute("style", "width: "  + calculate(0) + "px");
+
         renderer.draw('.timetable');
+        let asideElem = tableElem.getElementsByTagName('aside')[0];
+        let offset = asideElem.offsetWidth;
+        tableElem.setAttribute("style", "width: "  + calculate(offset) + "px");
     }
 }
 

@@ -183,7 +183,15 @@ Timetable.Renderer = function(e) {
                     i && (n = void 0 !== e.options.url, o = void 0 !== e.options["class"], r = void 0 !== e.options.data, a = void 0 !== e.options.onClick);
                     var s = n ? "a" : "span",
                         c = t.appendChild(document.createElement(s)),
-                        l = c.appendChild(document.createElement("small"));
+                        l = c.appendChild(document.createElement("h5"));
+                    
+                    if (e.options.hasOwnProperty("rows"))
+                        e.options.rows.forEach(e => {
+                            let row = document.createElement("p");
+                            row.innerHTML = e;
+                            c.appendChild(row);
+                        });
+
                     if (c.title = e.name, n && (c.href = e.options.url), r)
                         for (var u in e.options.data) c.setAttribute("data-" + u, e.options.data[u]);
                     a && c.addEventListener("click", function(t) {

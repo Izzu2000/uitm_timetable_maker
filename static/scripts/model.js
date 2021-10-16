@@ -3,14 +3,36 @@ class Class{
         this.course = course;
         this.toDate = this.toDate.bind(this);
 
-        let start = this.toDate(json["Start"]);
-        let end = this.toDate(json["End"]);
+        this.rawStart = json["Start"];
+        this.rawEnd = json["End"];
+        console.log(this.rawStart + " : " + this.rawEnd);
+        let start = this.toDate(this.rawStart);
+        let end = this.toDate(this.rawEnd);
         let [newStart, newEnd] = this.inferenceTime(start, end);
+
         this.start = newStart;
         this.end = newEnd;
 
         this.courseName = course.courseValue();
         this.day = json["Day"];
+        this.status = json["Status"];
+        this.mode = json["Mode"];
+        this.room = json["Room"];
+    }
+    formattedName(){
+        let course = this.courseName;
+
+        let options = {
+            rows: [
+                this.rawStart + " - " + this.rawEnd
+            ]
+        };
+        
+        if (this.room !== "")
+            options.rows.push(this.room);
+
+        return [course, options];
+
     }
     toDate(time){
         /*
@@ -19,6 +41,7 @@ class Class{
         Possibility of data would be
             13:00pm (would break the regular date parse)
             12:00am (referring to 12:00pm, there are no classes at 12 midnight lol)
+            3:5 pm  (this is also possible, i have to change my regex to match this)
         With this in mind, the function is to:
             - convert 12 to 12:00 regardless of pm/am
             - convert 1pm or 1am to 13:00 (not logical for classes to be at night)
@@ -29,7 +52,7 @@ class Class{
         I wasn't sure to do this client side or server side, i decided to do it in client side
         because it's the client responsibility to interpret this data.
         */
-        var grouper = /^((?<hour>[01]?[0-9]|2[0-3])):(?<min>(([0-5]\d)(:[0-5]\d)?))( )*(?<day>(am|pm))$/.exec(time);
+        var grouper = /^((?<hour>[01]?[0-9]|2[0-3])):(?<min>(([0-5]\d)?|\d))( )*(?<day>(am|pm))$/.exec(time);
         const {groups: {hour, min, day}} = grouper;
         var date = new Date();
         var currentHour = parseInt(hour);
