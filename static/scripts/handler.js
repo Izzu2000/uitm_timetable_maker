@@ -30,6 +30,10 @@ function createNewCourse(branch){
     course.createRow();
     return course;
 }
+
+function updateAllCourses(callback){
+    currentCourses().forEach(callback);
+}
 class BasicAccumulator{
     constructor(){
         this.functions = [];
@@ -78,10 +82,45 @@ class Course {
         this.fillCourses = this.fillCourses.bind(this);
         this.fillGroups = this.fillGroups.bind(this);
         this.autoGroupAssume = this.autoGroupAssume.bind(this);
+        this.unhighlight = this.unhighlight.bind(this);
+        this.formatClass = this.formatClass.bind(this);
         this.__fetchCourses = this.__fetchCourses.bind(this);
         this.isInit = false;
         this.selectionData = [];
+        this._groupValue = null;
+        this._classes = null;
+        this.classesNode = null;
+        this._highlight = false;
     }
+    get group(){
+        if (this._groupValue !== this.groupValue() || this._classes == null)
+            this._groupValue = this.groupValue();
+            this._classes = new Group(this);
+
+        return this._classes;
+    }
+    get isHighlighted(){
+        return this._highlight;
+    }
+    highlight(){
+        if (!this.isHighlighted)
+            this.toggleHighlight();
+    }
+    unhighlight(){
+        if(this.isHighlighted)
+            this.toggleHighlight();
+    }
+    toggleHighlight(){
+        this._highlight = !this._highlight;
+        let color = this.isHighlighted? "red": "black";
+        let tds = this.rowCourse.getElementsByTagName("td"); 
+
+        for(var i = 0; i < tds.length; i++)
+            tds[i].setAttribute("style", "color: " + color);
+
+        console.log("toggle");
+    }
+
     selectedGroupValues(){
         var value = this.groupValue();
         return this.selectionData.filter(e => e["Group"] == value);
@@ -107,12 +146,15 @@ class Course {
 
         let firstCell = row.insertCell();
         let secondCell = row.insertCell();
+        
+        let courseSpinner = new PartialSpinner("Select Course", "Add Course", firstCell);
+        this.courseSpinner = courseSpinner;
 
-        this.courseSpinner = new PartialSpinner("Select Course", "Add Course", firstCell);
-        this.courseSpinner.setClickListener(this.initiateCourse);
-        this.courseSpinner.addSelectedListener(this.selectedCourse);
-        this.groupSpinner = new PartialSpinner("Select Group", "-", secondCell);
-        this.groupSpinner.addSelectedListener(this.selectedGroup);
+        courseSpinner.setClickListener(this.initiateCourse);
+        courseSpinner.addSelectedListener(this.selectedCourse);
+        let groupSpinner = new PartialSpinner("Select Group", "-", secondCell);
+        this.groupSpinner = groupSpinner;
+        groupSpinner.addSelectedListener(this.selectedGroup);
 
         this.table.appendChild(row);
     }
@@ -124,9 +166,38 @@ class Course {
         delButton.onclick = this.deleteCourse;
         this.attachRow(delButton);
     }
+    createClassRow(){
+        let groupCell = document.createTextNode("");
+        return this.attachRow(groupCell);
+    }
+    formatClass(){
+        let classNode = this.classesNode;
+        if (classNode == null){
+            classNode = this.createClassRow();
+            this.classesNode = classNode;
+        }else
+            while (classNode.hasChildNodes())
+                classNode.removeChild(classNode.lastChild);
+
+        const group = this.group;
+        const texts = group.classes.map(e => e.day.slice(0, 3) + ": " + e.rawStart + " - " + e.rawEnd);
+        if (texts.length != 0){
+            texts.forEach(e => {
+                let content = document.createTextNode(e);
+                classNode.appendChild(content);
+                let br = document.createElement("br");
+                classNode.appendChild(br);
+            });
+        }else{
+            let content = document.createTextNode("No class");
+            classNode.appendChild(content);
+        }
+            
+    }
     attachRow(node){
         let delCell = this.rowCourse.insertCell();
         delCell.appendChild(node);
+        return delCell;
     }
     deleteCourse(){
         let arr = pageState["rows"];
@@ -187,6 +258,7 @@ class Course {
             }
             this.selectionData.push(rawData);
         }
+        this.formatClass();
         this.autoGroupAssume();
     }
     autoGroupAssume(){
@@ -234,9 +306,11 @@ class Course {
     selectedGroup(val){
         this.groupSpinner.setValue(val);
         pageState["group_selection"].add(val);
+        this.formatClass();
         creator.renderTable();
     }
     initSpinners(){
+        this.formatClass();
         this.initDelete();
         this.getCourses();
     }
@@ -279,7 +353,7 @@ class TimeTableCreator{
                     course. Nobody got time for that.
                 */
 
-                groups.push(new Group(course));
+                groups.push(course.group);
             }
         });
         return groups;
@@ -289,12 +363,12 @@ class TimeTableCreator{
     }
     clashDetection(groups){
         let classes = [];
-        this.allClass(groups).forEach(oneClass => {
+        let allClass = this.allClass(groups);
+        updateAllCourses(e => e.unhighlight());
+        
+        allClass.forEach(oneClass => {
             let indexClash = classes.map(e => {
-                if (e.course == oneClass.course)
-                    return false;
-                
-                if (e.day != oneClass.day)
+                if (e.course == oneClass.course || e.day != oneClass.day)
                     return false;
 
                 let [start, end, cStart, cEnd] = [e.start, e.end, oneClass.start, oneClass.end];
@@ -304,6 +378,8 @@ class TimeTableCreator{
             classes.push(oneClass);
             if (indexClash > -1){
                 let clashClass = classes[indexClash];
+                clashClass.course.highlight();
+                oneClass.course.highlight();
                 console.log("Clash = " + clashClass.course.courseValue() + " with " + oneClass.course.courseValue());
             }
         });
@@ -323,7 +399,7 @@ class TimeTableCreator{
             maxHour = 18;
         if (!isFinite(minHour))
             minHour = 8;
-        console.log(minHour, maxHour)
+
         timetable.setScope(minHour, maxHour);
 
         this.allClass(groups).forEach(oneClass => {
@@ -334,7 +410,6 @@ class TimeTableCreator{
                 console.log("Failure to add course '" + oneClass.courseName + "': " + err);
             }
         });
-        
 
         // dynamic timetable is not sync, as temporary solution, calculate it.
         var renderer = new Timetable.Renderer(timetable);
@@ -370,6 +445,7 @@ function createHeader(table){
     let header = headerTH.insertRow();
     createTH(header, "Course");
     createTH(header, "Group");
+    createTH(header, "Time");
     createTH(header, "");
 }
 function createTable(){
