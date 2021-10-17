@@ -12,6 +12,7 @@ class PartialSpinner{
         this.createDiv = this.createDiv.bind(this);
         this.fullInitSpinner = this.fullInitSpinner.bind(this);
         this.initSearch = this.initSearch.bind(this);
+        this.unActiveAllSpinners = this.unActiveAllSpinners.bind(this);
         this.selectListeners = [];
         this.isPartial = true;
         this.partialInitSpinner();
@@ -34,6 +35,19 @@ class PartialSpinner{
         this.placeholderContainer.innerHTML = this.placeholderUninit;
 
         this.setClickListener(this.fullInitSpinner);
+        this.setClickListener(this.unActiveAllSpinners);
+    }
+    unActiveAllSpinners(){
+        let allSpinners = document.getElementsByClassName("select-box");
+        for(var i = 0; i < allSpinners.length; i++){
+            let e = allSpinners[i];
+            if (e == this.mainContainer)
+                continue;
+            
+            let options = e.getElementsByClassName("options-container")[0];
+            options.classList.remove("active");
+
+        }
     }
     removeClickListener(callback){
         this.placeholderContainer.removeEventListener("click", callback);
