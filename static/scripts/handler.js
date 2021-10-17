@@ -12,7 +12,7 @@ function selectedBranch(branch){
     pageState["courses"] = [];
     pageState["groups"] = {};
     if ("table" in pageState){
-        currentCourses().forEach(e => {
+        pageState["rows"].forEach(e => {
             console.log("branchupdate:" + branch);
             e.updateBranch(branch);
         });
@@ -75,8 +75,11 @@ class Course {
         this.selectedCourse = this.selectedCourse.bind(this);
         this.deleteCourse = this.deleteCourse.bind(this);
         this.attachRow = this.attachRow.bind(this);
+        this.getCourses = this.getCourses.bind(this);
         this.updateBranch = this.updateBranch.bind(this);
         this.initSpinners = this.initSpinners.bind(this);
+        this.onColorChange = this.onColorChange.bind(this);
+        this.initColor = this.initColor.bind(this);
         this.initDelete = this.initDelete.bind(this);
         this.initiateCourse = this.initiateCourse.bind(this);
         this.fillCourses = this.fillCourses.bind(this);
@@ -85,12 +88,14 @@ class Course {
         this.unhighlight = this.unhighlight.bind(this);
         this.formatClass = this.formatClass.bind(this);
         this.__fetchCourses = this.__fetchCourses.bind(this);
+        this.createRow = this.createRow.bind(this);
         this.isInit = false;
         this.selectionData = [];
         this._groupValue = null;
         this._classes = null;
         this.classesNode = null;
         this._highlight = false;
+        this.color = "#2f3640";
     }
     get group(){
         if (this._groupValue !== this.groupValue() || this._classes == null)
@@ -118,7 +123,6 @@ class Course {
         for(var i = 0; i < tds.length; i++)
             tds[i].setAttribute("style", "color: " + color);
 
-        console.log("toggle");
     }
 
     selectedGroupValues(){
@@ -127,6 +131,11 @@ class Course {
     }
     updateBranch(branch){
         this.branch = branch;
+        if (!this.isInit){
+            this.courseSpinner.clearOptions();
+            return;
+        }
+
         this.groupSpinner.clearOptions();
         this.getCourses();
     }
@@ -213,15 +222,14 @@ class Course {
     }
     getCourses(){
         this.courseSpinner.clearOptions();
+        accumulator.execute(this.__fetchCourses);
+    }
+    async __fetchCourses(){
         var cachedCourses = pageState["courses"];
         if (cachedCourses.length != 0){
             this.fillCourses(cachedCourses);
             return;
         }
-
-        accumulator.execute(async() => await this.__fetchCourses(cachedCourses));
-    }
-    async __fetchCourses(cachedCourses){
         let payload = {branch: this.branch}
         try{
             let response = await fetch("/api/courses", {
@@ -234,8 +242,14 @@ class Course {
             console.log("Failure getting courses " + this.branch + ":" + err);
             json = {};
         }
+        if (json.hasOwnProperty("status_code")){
+            console.log("Failure to fetch: " + json["status_code"] + ": " + json["detail"]);
+            console.log("Branch: " + this.branch + "\n" + "");
+            return;
+        }
         for(var key in json)
             cachedCourses.push(json[key]);
+        
         this.fillCourses(json);
     }
     courseValue(){
@@ -298,6 +312,12 @@ class Course {
             }
         }).then(res => res.json())
         .then(json => {
+            if (json.hasOwnProperty("status_code")){
+                console.log("Failure to fetch: " + json["status_code"] + ": " + json["detail"]);
+                console.log("Branch: " + this.branch + "\n" + "Course: " + value);
+                return;
+            }
+
             for(var key in json)
                 pageState["groups"][value].push(json[key]);
             this.fillGroups(json);
@@ -309,8 +329,20 @@ class Course {
         this.formatClass();
         creator.renderTable();
     }
+    onColorChange(color){
+        this.color = color;
+        creator.renderTable();
+    }
+    initColor(){
+        let picker = document.createElement("input");
+        picker.type = "color";
+        
+        picker.onchange = () => this.onColorChange(picker.value);
+        this.attachRow(picker);
+    }
     initSpinners(){
         this.formatClass();
+        this.initColor();
         this.initDelete();
         this.getCourses();
     }
@@ -446,6 +478,7 @@ function createHeader(table){
     createTH(header, "Course");
     createTH(header, "Group");
     createTH(header, "Time");
+    createTH(header, "Color");
     createTH(header, "");
 }
 function createTable(){

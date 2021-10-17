@@ -155,7 +155,13 @@ h2 {
 .select-box .option .radio {
   display: none;
 }
-
+.timetable .time-entry{
+	border: 1px solid rgba(255,255,255, .15);
+  transition: .2s;
+}
+.timetable .time-entry:hover {
+  filter: brightness(110%);
+}
 /* Searchbox */
 
 .search-box input {

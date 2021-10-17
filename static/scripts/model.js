@@ -25,7 +25,10 @@ class Class{
         let options = {
             rows: [
                 this.rawStart + " - " + this.rawEnd
-            ]
+            ],
+            style:{
+                "background-color": this.course.color
+            }
         };
         
         if (this.room !== "")

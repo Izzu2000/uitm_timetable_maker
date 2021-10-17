@@ -191,6 +191,15 @@ Timetable.Renderer = function(e) {
                             row.innerHTML = e;
                             c.appendChild(row);
                         });
+                    
+                    let styles = e.options.style;
+                    if (styles !== null)
+                        for (var key in styles){
+                            if (styles.hasOwnProperty(key)) {
+                                c.style[key] = styles[key];
+                            }
+                        }
+
 
                     if (c.title = e.name, n && (c.href = e.options.url), r)
                         for (var u in e.options.data) c.setAttribute("data-" + u, e.options.data[u]);

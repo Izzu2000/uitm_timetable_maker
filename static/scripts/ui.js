@@ -134,7 +134,7 @@ class PartialSpinner{
         this.optionsContainer.appendChild(optionContainer);
     }
     clearOptions(){
-        this.placeholderContainer.innerHTML = this.placeholder;
+        this.placeholderContainer.innerHTML = this.isPartial? this.placeholderUninit:  this.placeholder;
         let node = this.optionsContainer;
         while (node.firstChild)
             node.removeChild(node.lastChild);
